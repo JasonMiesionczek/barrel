@@ -7,4 +7,6 @@ mod impls;
 pub use self::builders::*;
 
 /// Export only the Type struct
-pub use self::impls::{BaseType, Type, WrappedDefault};
+pub use self::impls::{
+    BaseType, ForeignKey, ForeignKeyAction, ForeignKeyOption, Type, WrappedDefault,
+};

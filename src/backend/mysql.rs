@@ -4,7 +4,7 @@
 //! databases. They should be thoroughly tested via unit testing
 
 use super::SqlGenerator;
-use types::{BaseType, Type};
+use types::{BaseType, ForeignKey, ForeignKeyAction, ForeignKeyOption, Type};
 
 /// MySQL generator backend
 pub struct MySql;
@@ -54,7 +54,8 @@ impl SqlGenerator for MySql {
                 Binary => format!("{}{} {}", MySql::prefix(ex), name, MySql::print_type(bt)),
                 Foreign(_) => format!("{}{} {}", MySql::prefix(ex), name, MySql::print_type(bt)),
                 Custom(_) => format!("{}{} {}", MySql::prefix(ex), name, MySql::print_type(bt)),
-                Array(it) => format!("{}{} {}", MySql::prefix(ex), name, MySql::print_type(Array(Box::new(*it))))
+                Array(it) => format!("{}{} {}", MySql::prefix(ex), name, MySql::print_type(Array(Box::new(*it)))),
+                ForeignKey(_) => format!("{}", MySql::print_type(bt)),
             },
             match (&tt.default).as_ref() {
                 Some(ref m) => format!(" DEFAULT '{}'", m),
@@ -84,6 +85,34 @@ impl MySql {
         }
     }
 
+    fn print_foreign_key(fk: ForeignKey) -> String {
+        //let mut fk = fk.clone();
+        fn print_option(opt: &ForeignKeyOption) -> String {
+            match opt {
+                ForeignKeyOption::Cascade => String::from("CASCADE"),
+                ForeignKeyOption::NoAction => String::from("NO ACTION"),
+                ForeignKeyOption::SetNull => String::from("SET NULL"),
+                ForeignKeyOption::Restrict => String::from("RESTRICT"),
+                ForeignKeyOption::SetDefault => String::from("SET DEFAULT"),
+            }
+        }
+
+        let actions = fk
+            .actions
+            .iter()
+            .map(|a| match a {
+                ForeignKeyAction::Delete(option) => format!("ON DELETE {}", print_option(option)),
+                ForeignKeyAction::Update(option) => format!("ON UPDATE {}", print_option(option)),
+            })
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        format!(
+            "FOREIGN KEY ({}) REFERENCES {} ({}) {}",
+            fk.child_column, fk.parent_table, fk.parent_column, actions,
+        )
+    }
+
     fn print_type(t: BaseType) -> String {
         use self::BaseType::*;
         match t {
@@ -105,6 +134,7 @@ impl MySql {
             Foreign(t) => format!("INTEGER REFERENCES {}", t),
             Custom(t) => format!("{}", t),
             Array(meh) => format!("{}[]", MySql::print_type(*meh)),
+            ForeignKey(fk) => MySql::print_foreign_key(fk),
         }
     }
 }

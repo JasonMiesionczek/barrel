@@ -3,6 +3,31 @@
 use std::fmt::{self, Display, Formatter};
 use std::time::SystemTime;
 
+/// Enum for the different actions to take on foreign key actions
+#[derive(PartialEq, Debug, Clone)]
+pub enum ForeignKeyOption {
+    Cascade,
+    SetNull,
+    NoAction,
+    Restrict,
+    SetDefault,
+}
+
+/// Holder for the two types of foreign key actions
+#[derive(PartialEq, Debug, Clone)]
+pub enum ForeignKeyAction {
+    Delete(ForeignKeyOption),
+    Update(ForeignKeyOption),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct ForeignKey {
+    pub child_column: &'static str,
+    pub parent_table: &'static str,
+    pub parent_column: &'static str,
+    pub actions: Vec<ForeignKeyAction>,
+}
+
 /// Core type enum, describing the basic type
 #[derive(PartialEq, Debug, Clone)]
 pub enum BaseType {
@@ -34,6 +59,8 @@ pub enum BaseType {
     Custom(&'static str),
     /// Any of the above, but **many** of them
     Array(Box<BaseType>),
+    /// Foreign Key to another table with cascade options
+    ForeignKey(ForeignKey),
 }
 
 #[derive(PartialEq, Debug, Clone)]

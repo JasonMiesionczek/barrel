@@ -1,7 +1,7 @@
 //! Sqlite3 implementation of a generator
 
 use super::SqlGenerator;
-use types::{BaseType, Type};
+use types::{BaseType, ForeignKey, ForeignKeyAction, ForeignKeyOption, Type};
 
 /// We call this struct Sqlite instead of Sqlite3 because we hope not
 /// to have to break the API further down the road
@@ -52,7 +52,8 @@ impl SqlGenerator for Sqlite {
                 Binary => format!("{}\"{}\" {}", Sqlite::prefix(ex), name, Sqlite::print_type(bt)),
                 Foreign(_) => format!("{}\"{}\" {}", Sqlite::prefix(ex), name, Sqlite::print_type(bt)),
                 Custom(_) => format!("{}\"{}\" {}", Sqlite::prefix(ex), name, Sqlite::print_type(bt)),
-                Array(it) => format!("{}\"{}\" {}", Sqlite::prefix(ex), name, Sqlite::print_type(Array(Box::new(*it))))
+                Array(it) => format!("{}\"{}\" {}", Sqlite::prefix(ex), name, Sqlite::print_type(Array(Box::new(*it)))),
+                ForeignKey(_) => format!("{}", Sqlite::print_type(bt)),
             },
             match (&tt.default).as_ref() {
                 Some(ref m) => format!(" DEFAULT '{}'", m),
@@ -84,6 +85,34 @@ impl Sqlite {
         }
     }
 
+    fn print_foreign_key(fk: ForeignKey) -> String {
+        //let mut fk = fk.clone();
+        fn print_option(opt: &ForeignKeyOption) -> String {
+            match opt {
+                ForeignKeyOption::Cascade => String::from("CASCADE"),
+                ForeignKeyOption::NoAction => String::from("NO ACTION"),
+                ForeignKeyOption::SetNull => String::from("SET NULL"),
+                ForeignKeyOption::Restrict => String::from("RESTRICT"),
+                ForeignKeyOption::SetDefault => String::from("SET DEFAULT"),
+            }
+        }
+
+        let actions = fk
+            .actions
+            .iter()
+            .map(|a| match a {
+                ForeignKeyAction::Delete(option) => format!("ON DELETE {}", print_option(option)),
+                ForeignKeyAction::Update(option) => format!("ON UPDATE {}", print_option(option)),
+            })
+            .collect::<Vec<String>>()
+            .join(" ");
+
+        format!(
+            "FOREIGN KEY ({}) REFERENCES {} ({}) {}",
+            fk.child_column, fk.parent_table, fk.parent_column, actions,
+        )
+    }
+
     fn print_type(t: BaseType) -> String {
         use self::BaseType::*;
         match t {
@@ -104,6 +133,7 @@ impl Sqlite {
             Foreign(t) => format!("INTEGER REFERENCES {}", t),
             Custom(t) => format!("{}", t),
             Array(meh) => format!("{}[]", Sqlite::print_type(*meh)),
+            ForeignKey(fk) => Sqlite::print_foreign_key(fk),
         }
     }
 }
