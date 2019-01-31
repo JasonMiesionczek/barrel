@@ -69,7 +69,7 @@ impl SqlGenerator for MySql {
     }
 
     fn drop_column(name: &str) -> String {
-        format!("DROP COLUMN \"{}\"", name)
+        format!("DROP COLUMN `{}`", name)
     }
 
     fn rename_column(old: &str, new: &str) -> String {
